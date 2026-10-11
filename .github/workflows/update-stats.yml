@@ -1,0 +1,62 @@
+name: Update GitHub Stats Badge
+
+on:
+  schedule:
+    - cron: "0 0 * * 0"
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "src/**"
+      - "assets/**"
+      - "requirements.txt"
+      - ".github/workflows/update-stats.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-stats
+  cancel-in-progress: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate badges
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
+          GH_USERNAME: ${{ github.repository_owner }}
+          THEME: dark
+          TOP_LANGUAGES: "6"
+          BACKGROUND_IMAGE: background.png
+          BACKGROUND_BLUR: "2"
+          BACKGROUND_OVERLAY: "150"
+          EXCLUDE_LANGS: ""
+          EXCLUDE_REPOS: ""
+        run: python src/main.py
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add output
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "chore: update GitHub stats badges [skip ci]"
+            git push
+          fi
